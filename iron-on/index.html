@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Iron-On Text Designer</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✂️</span>
+      <span>Iron-On Text Designer</span>
+    </div>
+    <div class="design-name-wrap">
+      <input id="design-name" class="design-name" type="text" value="Untitled design" aria-label="Design name">
+      <span id="unsaved-dot" class="unsaved-dot" title="Unsaved changes" hidden>●</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="btn-library" class="btn">Library</button>
+      <button id="btn-save" class="btn">Save</button>
+      <button id="btn-export" class="btn btn-primary">Export</button>
+    </div>
+  </header>
+
+  <div class="view-toggle">
+    <button id="tab-design" class="tab active" data-view="design">Design</button>
+    <button id="tab-mockup" class="tab" data-view="mockup">Mockup</button>
+  </div>
+
+  <main class="workspace">
+    <!-- Left sidebar: panel switcher + panel body -->
+    <aside class="sidebar left">
+      <nav class="panel-switcher">
+        <button class="panel-btn active" data-panel="layers" title="Layers">🗂️</button>
+        <button class="panel-btn" data-panel="text" title="Text">T</button>
+        <button class="panel-btn" data-panel="color" title="Color">🎨</button>
+        <button class="panel-btn" data-panel="effects" title="Effects">✨</button>
+        <button class="panel-btn" data-panel="mockup" title="Mockup">👕</button>
+      </nav>
+      <div class="panel-body">
+        <!-- Layers panel -->
+        <section class="panel active" data-panel="layers">
+          <h3>Layers</h3>
+          <div class="panel-actions">
+            <button id="btn-add-text" class="btn btn-block">+ Add text layer</button>
+          </div>
+          <ul id="layer-list" class="layer-list"></ul>
+        </section>
+
+        <!-- Text panel -->
+        <section class="panel" data-panel="text">
+          <h3>Text</h3>
+          <label>Content
+            <textarea id="text-content" rows="3" placeholder="Type your text..."></textarea>
+          </label>
+          <label>Font
+            <select id="text-font"></select>
+          </label>
+          <label>Upload a custom font
+            <input id="text-font-upload" type="file" accept=".ttf,.otf,.woff,.woff2">
+          </label>
+          <label>Size <span id="text-size-val">120</span> px
+            <input id="text-size" type="range" min="20" max="500" value="120">
+          </label>
+          <label>Letter spacing <span id="text-spacing-val">0</span>
+            <input id="text-spacing" type="range" min="-20" max="60" value="0">
+          </label>
+          <label>Line height <span id="text-lineheight-val">1.1</span>
+            <input id="text-lineheight" type="range" min="0.8" max="2" step="0.05" value="1.1">
+          </label>
+          <label>Rotation <span id="text-rotation-val">0</span>°
+            <input id="text-rotation" type="range" min="-180" max="180" value="0">
+          </label>
+        </section>
+
+        <!-- Color panel -->
+        <section class="panel" data-panel="color">
+          <h3>Color</h3>
+          <div class="color-mode-tabs">
+            <button class="mode-tab active" data-mode="solid">Solid</button>
+            <button class="mode-tab" data-mode="per-letter">Per-letter</button>
+            <button class="mode-tab" data-mode="gradient">Gradient</button>
+            <button class="mode-tab" data-mode="rainbow">Rainbow</button>
+          </div>
+          <div class="color-body">
+            <div class="color-section" data-for="solid">
+              <label>Color <input id="color-solid" type="color" value="#e11d48"></label>
+            </div>
+            <div class="color-section hidden" data-for="per-letter">
+              <p class="hint">Click a letter in the preview to change its color.</p>
+              <div id="per-letter-list" class="per-letter-list"></div>
+              <button id="btn-per-letter-reset" class="btn btn-block">Reset all letters</button>
+            </div>
+            <div class="color-section hidden" data-for="gradient">
+              <label>Angle <span id="gradient-angle-val">0</span>°
+                <input id="gradient-angle" type="range" min="0" max="360" value="0">
+              </label>
+              <div id="gradient-stops" class="gradient-stops"></div>
+              <button id="btn-add-stop" class="btn btn-block">+ Add stop</button>
+            </div>
+            <div class="color-section hidden" data-for="rainbow">
+              <label>Angle <span id="rainbow-angle-val">0</span>°
+                <input id="rainbow-angle" type="range" min="0" max="360" value="0">
+              </label>
+              <p class="hint">Classic ROYGBIV rainbow. Adjust angle to rotate.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Effects panel -->
+        <section class="panel" data-panel="effects">
+          <h3>Effects</h3>
+
+          <fieldset>
+            <legend><label><input id="stroke-enabled" type="checkbox"> Outline</label></legend>
+            <label>Color <input id="stroke-color" type="color" value="#000000"></label>
+            <label>Width <span id="stroke-width-val">4</span> px
+              <input id="stroke-width" type="range" min="0" max="40" value="4">
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend><label><input id="shadow-enabled" type="checkbox"> Drop shadow / Glow</label></legend>
+            <label>Color <input id="shadow-color" type="color" value="#000000"></label>
+            <label>Blur <span id="shadow-blur-val">6</span>
+              <input id="shadow-blur" type="range" min="0" max="60" value="6">
+            </label>
+            <label>X offset <span id="shadow-dx-val">2</span>
+              <input id="shadow-dx" type="range" min="-40" max="40" value="2">
+            </label>
+            <label>Y offset <span id="shadow-dy-val">2</span>
+              <input id="shadow-dy" type="range" min="-40" max="40" value="2">
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend><label><input id="curve-enabled" type="checkbox"> Curve / Arc</label></legend>
+            <label>Amount <span id="curve-amount-val">0</span>
+              <input id="curve-amount" type="range" min="-100" max="100" value="40">
+            </label>
+            <p class="hint">Positive = smile (concave up). Negative = frown.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend><label><input id="sparkle-enabled" type="checkbox"> Sparkles</label></legend>
+            <label>Density <span id="sparkle-density-val">12</span>
+              <input id="sparkle-density" type="range" min="0" max="60" value="12">
+            </label>
+            <label>Size <span id="sparkle-size-val">14</span>
+              <input id="sparkle-size" type="range" min="4" max="60" value="14">
+            </label>
+            <label>Color <input id="sparkle-color" type="color" value="#ffd700"></label>
+          </fieldset>
+        </section>
+
+        <!-- Mockup panel -->
+        <section class="panel" data-panel="mockup">
+          <h3>Mockup</h3>
+          <label>Quick presets
+            <select id="mockup-preset">
+              <option value="">— Choose a seeded garment —</option>
+            </select>
+          </label>
+          <label>Brand
+            <select id="mockup-brand"></select>
+          </label>
+          <label>Size
+            <select id="mockup-size"></select>
+          </label>
+          <label>Garment
+            <select id="mockup-garment">
+              <option value="tank">Tank top (sleeveless)</option>
+              <option value="dress">Dress (sleeveless fit-and-flare)</option>
+            </select>
+          </label>
+          <label>Tint color (silhouette)
+            <input id="mockup-tint" type="color" value="#ef3e2c">
+          </label>
+          <label>Upload product photo (optional)
+            <input id="mockup-photo" type="file" accept="image/*">
+          </label>
+          <div id="calibration-hint" class="hint hidden">
+            Click two points on your photo that match the garment's <strong id="calibration-label">shoulder-to-shoulder</strong> width, then the app will scale your design accurately.
+          </div>
+          <button id="btn-reset-photo" class="btn btn-block hidden">Remove photo</button>
+          <label>Design placement X <span id="placement-x-val">0</span>
+            <input id="placement-x" type="range" min="-300" max="300" value="0">
+          </label>
+          <label>Design placement Y <span id="placement-y-val">0</span>
+            <input id="placement-y" type="range" min="-300" max="300" value="0">
+          </label>
+          <label>Design scale <span id="placement-scale-val">1</span>×
+            <input id="placement-scale" type="range" min="0.2" max="2" step="0.05" value="1">
+          </label>
+        </section>
+      </div>
+    </aside>
+
+    <!-- Center: preview -->
+    <section class="canvas-area">
+      <div id="edge-warning" class="edge-warning" hidden>⚠ Design is too close to the edge — move inward or scale down.</div>
+      <div id="canvas-wrap" class="canvas-wrap">
+        <svg id="preview" class="preview" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="canvas-footer">
+        <label>Paper size
+          <select id="paper-size">
+            <option value="letter">US Letter 8.5×11"</option>
+            <option value="square">Square (8×8")</option>
+            <option value="portrait">Portrait (8×10")</option>
+          </select>
+        </label>
+        <label>Zoom <span id="zoom-val">100</span>%
+          <input id="zoom" type="range" min="25" max="200" value="100">
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <!-- Export dialog -->
+  <dialog id="export-dialog" class="dialog">
+    <form method="dialog">
+      <h2>Export for printing</h2>
+
+      <label>Format
+        <select id="export-format">
+          <option value="png">Transparent PNG (for printing)</option>
+          <option value="svg">SVG (vector)</option>
+        </select>
+      </label>
+
+      <label>Size
+        <select id="export-size">
+          <option value="letter">US Letter 8.5×11" @ 300 DPI (centered)</option>
+          <option value="tight">Tight crop to design</option>
+        </select>
+      </label>
+
+      <label><input id="export-mirror" type="checkbox" checked> Mirror horizontally (required for light-fabric iron-on)</label>
+
+      <details class="export-tips">
+        <summary>Printing tips for Canon Inkjet Light-Fabric Transfer Paper</summary>
+        <ul>
+          <li>Use your printer's photo / high-quality setting, paper type = <em>Plain Paper</em>.</li>
+          <li>Feed the transfer sheet coated-side-down per the package instructions.</li>
+          <li>Let the print dry 1–2 minutes before peeling the backing for ironing.</li>
+          <li>Mirroring is required for light-fabric paper so the text reads correctly after transfer.</li>
+        </ul>
+      </details>
+
+      <menu class="dialog-actions">
+        <button type="button" id="btn-export-cancel" class="btn">Cancel</button>
+        <button type="button" id="btn-export-download" class="btn btn-primary">Download</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Library dialog -->
+  <dialog id="library-dialog" class="dialog library-dialog">
+    <form method="dialog">
+      <h2>Saved designs</h2>
+      <div class="library-actions">
+        <button type="button" id="btn-new-design" class="btn">+ New blank design</button>
+        <button type="button" id="btn-export-library" class="btn">Export library (JSON)</button>
+        <label class="btn file-label">
+          Import library
+          <input id="import-library" type="file" accept="application/json" hidden>
+        </label>
+      </div>
+      <div id="library-grid" class="library-grid"></div>
+      <menu class="dialog-actions">
+        <button type="button" id="btn-library-close" class="btn">Close</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Calibration dialog -->
+  <dialog id="calibration-dialog" class="dialog">
+    <form method="dialog">
+      <h2>Calibrate photo scale</h2>
+      <p>Click two points on your photo corresponding to the garment's <strong id="cal-dialog-measure">shoulder-to-shoulder</strong> width (<strong id="cal-dialog-inches">10"</strong>).</p>
+      <div class="cal-wrap">
+        <img id="cal-image" alt="Product photo">
+        <canvas id="cal-canvas"></canvas>
+      </div>
+      <p id="cal-status" class="hint">Click the first point.</p>
+      <menu class="dialog-actions">
+        <button type="button" id="btn-cal-reset" class="btn">Reset points</button>
+        <button type="button" id="btn-cal-cancel" class="btn">Cancel</button>
+        <button type="button" id="btn-cal-ok" class="btn btn-primary" disabled>Use this calibration</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
