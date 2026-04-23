@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- UI chrome fonts (independent of the picker) -->
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Honk&family=Fredoka:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <header class="topbar">
@@ -57,11 +59,29 @@
             <textarea id="text-content" rows="3" placeholder="Type your text..."></textarea>
           </label>
           <label>Font
-            <select id="text-font"></select>
+            <div class="font-picker" id="font-picker">
+              <button type="button" class="fp-trigger" id="fp-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="fp-trigger-sample" id="fp-trigger-sample">Brooklyn</span>
+                <span class="fp-trigger-name" id="fp-trigger-name">Bungee</span>
+                <span class="fp-chev">▾</span>
+              </button>
+              <div class="fp-pop" id="fp-pop" hidden>
+                <div class="fp-search-wrap">
+                  <input type="search" id="fp-search" class="fp-search" placeholder="search fonts…" autocomplete="off">
+                </div>
+                <div class="fp-list" id="fp-list" role="listbox"></div>
+              </div>
+            </div>
           </label>
-          <label>Upload a custom font
-            <input id="text-font-upload" type="file" accept=".ttf,.otf,.woff,.woff2">
+          <label for="text-font-upload">Your fonts
+            <div id="font-drop-zone" class="drop-zone">
+              <span class="dz-icon">⬆</span>
+              Drop a <strong>.ttf</strong> / <strong>.otf</strong> file here
+              <span class="dz-hint">or click to browse</span>
+              <input id="text-font-upload" type="file" accept=".ttf,.otf,.woff,.woff2">
+            </div>
           </label>
+          <div id="custom-font-chips" class="custom-font-chips"></div>
           <label>Size <span id="text-size-val">120</span> px
             <input id="text-size" type="range" min="20" max="500" value="120">
           </label>
@@ -206,13 +226,17 @@
         <svg id="preview" class="preview" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
       <div class="canvas-footer">
-        <label>Paper size
+        <label>Paper
           <select id="paper-size">
             <option value="letter">US Letter 8.5×11"</option>
-            <option value="square">Square (8×8")</option>
-            <option value="portrait">Portrait (8×10")</option>
+            <option value="square">Square 8×8"</option>
+            <option value="portrait">Portrait 8×10"</option>
           </select>
         </label>
+        <div class="orientation-toggle" id="orientation-toggle" role="group" aria-label="Paper orientation">
+          <button type="button" data-orientation="portrait" class="active">▯ Portrait</button>
+          <button type="button" data-orientation="landscape">▭ Landscape</button>
+        </div>
         <label>Zoom <span id="zoom-val">100</span>%
           <input id="zoom" type="range" min="25" max="200" value="100">
         </label>

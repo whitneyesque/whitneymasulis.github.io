@@ -3,10 +3,11 @@
 // SVG viewBox uses UNITS_PER_INCH (100) units per inch so sizes are intuitive.
 
 import {
-  FONT_GROUPS, ALL_FONTS, loadGoogleFonts,
+  FONT_GROUPS, ALL_FONTS, loadGoogleFonts, loadLocalFonts,
   registerCustomFont, listCustomFonts, reHydrateCustomFont,
-  populateFontPicker, whenFontReady,
+  whenFontReady,
 } from './fonts.js';
+import { createFontPicker } from './font-picker.js';
 import {
   BRAND_CHARTS, SEEDED_PRESETS,
   getBrands, getSizesForBrand, getDimensions,
@@ -76,6 +77,7 @@ const state = {
   layers: [makeTextLayer()],
   selectedId: null,
   paperSize: 'letter',
+  orientation: 'portrait', // 'portrait' | 'landscape' — swaps paper w/h
   view: 'design',
   zoom: 100,
   mockup: {
@@ -96,6 +98,9 @@ state.selectedId = state.layers[0].id;
 let dirty = false;
 function markDirty()  { if (!dirty) { dirty = true;  els.unsavedDot.hidden = false; } }
 function markClean()  { dirty = false; els.unsavedDot.hidden = true; }
+
+// The custom font picker. Instantiated in init() once the DOM is ready.
+let fontPicker = null;
 
 function getSelected() {
   return state.layers.find(l => l.id === state.selectedId) || state.layers[0] || null;
@@ -126,7 +131,6 @@ const els = {
   layerList: $('layer-list'),
 
   textContent: $('text-content'),
-  textFont: $('text-font'),
   textFontUpload: $('text-font-upload'),
   textSize: $('text-size'),
   textSizeVal: $('text-size-val'),
@@ -191,6 +195,9 @@ const els = {
   canvasWrap: $('canvas-wrap'),
   preview: $('preview'),
   paperSize: $('paper-size'),
+  orientationToggle: $('orientation-toggle'),
+  fontDropZone: $('font-drop-zone'),
+  customFontChips: $('custom-font-chips'),
   zoom: $('zoom'),
   zoomVal: $('zoom-val'),
 
@@ -248,13 +255,45 @@ function fileToDataUrl(file) {
   });
 }
 
+async function urlToDataUrl(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  const blob = await res.blob();
+  return fileToDataUrl(blob);
+}
+
+// Cache calibrations per preset id in localStorage so the user only picks
+// shoulders once per garment photo.
+const CALIBRATION_CACHE_KEY = 'iron-on-calibrations';
+function readCalibrationCache() {
+  try { return JSON.parse(localStorage.getItem(CALIBRATION_CACHE_KEY)) || {}; }
+  catch { return {}; }
+}
+function writeCalibrationCache(obj) {
+  try { localStorage.setItem(CALIBRATION_CACHE_KEY, JSON.stringify(obj)); } catch {}
+}
+function cacheCalibration(presetId, cal) {
+  if (!presetId) return;
+  const c = readCalibrationCache();
+  c[presetId] = cal;
+  writeCalibrationCache(c);
+}
+function lookupCalibration(presetId) {
+  if (!presetId) return null;
+  return readCalibrationCache()[presetId] || null;
+}
+
 function getPaperDims() {
   const p = PAPER_SIZES[state.paperSize] || PAPER_SIZES.letter;
+  // Landscape swaps width/height; square paper is unaffected.
+  const landscape = state.orientation === 'landscape';
+  const w = landscape ? p.heightIn : p.widthIn;
+  const h = landscape ? p.widthIn  : p.heightIn;
   return {
-    widthIn: p.widthIn,
-    heightIn: p.heightIn,
-    widthU: p.widthIn * UNITS_PER_INCH,
-    heightU: p.heightIn * UNITS_PER_INCH,
+    widthIn: w,
+    heightIn: h,
+    widthU: w * UNITS_PER_INCH,
+    heightU: h * UNITS_PER_INCH,
   };
 }
 
@@ -628,8 +667,8 @@ function syncPanelToLayer() {
 
   // Text panel
   els.textContent.value = layer.content;
-  if (layer.font && layer.font.family) {
-    els.textFont.value = layer.font.family;
+  if (layer.font && layer.font.family && fontPicker) {
+    fontPicker.setFamily(layer.font.family);
   }
   els.textSize.value = layer.size;
   els.textSizeVal.textContent = layer.size;
@@ -998,6 +1037,7 @@ function serializeState() {
     layers: JSON.parse(JSON.stringify(state.layers)),
     selectedId: state.selectedId,
     paperSize: state.paperSize,
+    orientation: state.orientation,
     mockup: JSON.parse(JSON.stringify(state.mockup)),
     export: JSON.parse(JSON.stringify(state.export)),
     customFonts: { ...state.customFonts },
@@ -1014,6 +1054,7 @@ async function applyDesignData(record) {
     ? s.selectedId
     : state.layers[0].id;
   state.paperSize = s.paperSize || 'letter';
+  state.orientation = s.orientation === 'landscape' ? 'landscape' : 'portrait';
   if (s.mockup) state.mockup = { ...state.mockup, ...s.mockup };
   if (s.export) state.export = { ...state.export, ...s.export };
   state.customFonts = s.customFonts || {};
@@ -1025,9 +1066,12 @@ async function applyDesignData(record) {
   }
   await Promise.all(fontJobs);
 
-  populateFontPicker(els.textFont, state.layers[0]?.font?.family || DEFAULT_FONT);
+  if (fontPicker) fontPicker.setFamily(state.layers[0]?.font?.family || DEFAULT_FONT);
+  if (fontPicker) fontPicker.refresh();
+  renderCustomFontChips();
   els.designName.value = state.name;
   els.paperSize.value = state.paperSize;
+  syncOrientationToggle();
 
   // Mockup dropdown reflect
   if (els.mockupBrand) els.mockupBrand.value = state.mockup.brand;
@@ -1085,10 +1129,12 @@ function newBlankDesign() {
   state.layers = [makeTextLayer()];
   state.selectedId = state.layers[0].id;
   state.paperSize = 'letter';
+  state.orientation = 'portrait';
   state.mockup.photoDataUrl = null;
   state.mockup.calibration = null;
   els.designName.value = state.name;
   els.paperSize.value = state.paperSize;
+  syncOrientationToggle();
   els.calibrationHint.classList.add('hidden');
   els.btnResetPhoto.classList.add('hidden');
   renderLayersPanel();
@@ -1336,6 +1382,11 @@ function buildDesignInnerSvg(dims) {
   svg.setAttribute('viewBox', `0 0 ${areaW} ${areaH}`);
   svg.setAttribute('width', areaW);
   svg.setAttribute('height', areaH);
+  // Text wider than the print area should still render in the mockup (with the
+  // dashed print-area boundary visible around it) rather than get clipped by
+  // the nested SVG's viewport.
+  svg.setAttribute('overflow', 'visible');
+  svg.style.overflow = 'visible';
   const defs = svgEl('defs');
   svg.appendChild(defs);
   for (const layer of state.layers) {
@@ -1378,7 +1429,7 @@ function renderMockupView() {
 }
 
 function initMockupPanel() {
-  els.mockupPreset.addEventListener('change', () => {
+  els.mockupPreset.addEventListener('change', async () => {
     const p = SEEDED_PRESETS.find(pp => pp.id === els.mockupPreset.value);
     if (!p) return;
     state.mockup.preset = p.id;
@@ -1391,8 +1442,37 @@ function initMockupPanel() {
     els.mockupSize.value = p.size;
     els.mockupGarment.value = p.garment;
     els.mockupTint.value = p.tint;
-    markDirty();
-    renderAll();
+
+    // Load the bundled garment photo, apply cached calibration if present,
+    // else open the calibration dialog so the user clicks shoulders once.
+    if (p.image) {
+      try {
+        const dataUrl = await urlToDataUrl(p.image);
+        state.mockup.photoDataUrl = dataUrl;
+        els.btnResetPhoto.classList.remove('hidden');
+        const cached = lookupCalibration(p.id);
+        if (cached) {
+          state.mockup.calibration = cached;
+          els.calibrationHint.classList.add('hidden');
+          markDirty();
+          renderAll();
+        } else {
+          state.mockup.calibration = null;
+          els.calibrationHint.classList.remove('hidden');
+          markDirty();
+          renderAll();
+          openCalibrationDialog();
+        }
+      } catch (err) {
+        console.error('Failed to load garment photo', err);
+        alert(`Could not load photo for "${p.label}": ${err && err.message ? err.message : err}`);
+        markDirty();
+        renderAll();
+      }
+    } else {
+      markDirty();
+      renderAll();
+    }
   });
 
   els.mockupBrand.addEventListener('change', () => {
@@ -1521,6 +1601,10 @@ async function openCalibrationDialog() {
     const calibration = buildCalibration({ points, refInches, imageEl: img });
     if (calibration) {
       state.mockup.calibration = calibration;
+      // Remember this calibration for the preset, so the next time the user
+      // picks the same garment from the dropdown we skip the dialog.
+      if (state.mockup.preset) cacheCalibration(state.mockup.preset, calibration);
+      els.calibrationHint.classList.add('hidden');
       markDirty();
       renderAll();
     }
@@ -1611,19 +1695,12 @@ function wireTextPanel() {
     l.content = els.textContent.value;
     buildPerLetterUI();
     renderLayersPanel();
+    if (fontPicker) fontPicker.refreshSample();
     markDirty();
     renderAll();
   });
 
-  els.textFont.addEventListener('change', async () => {
-    const fam = els.textFont.value;
-    await whenFontReady(fam);
-    const l = getSelected();
-    if (!l) return;
-    l.font = { ...(l.font || {}), family: fam };
-    markDirty();
-    renderAll();
-  });
+  // Font-picker selection callback is wired in initFontPicker().
 
   els.textFontUpload.addEventListener('change', async () => {
     const file = els.textFontUpload.files?.[0];
@@ -1632,7 +1709,8 @@ function wireTextPanel() {
       const family = await registerCustomFont(file);
       const rec = listCustomFonts().find(r => r.family === family);
       if (rec) state.customFonts[family] = rec.dataUrl;
-      populateFontPicker(els.textFont, family);
+      if (fontPicker) { fontPicker.setFamily(family); fontPicker.refresh(); }
+      renderCustomFontChips();
       const l = getSelected();
       if (l) {
         l.font = { family, source: 'uploaded' };
@@ -1786,6 +1864,86 @@ function wirePaperAndZoom() {
   });
 }
 
+function syncOrientationToggle() {
+  if (!els.orientationToggle) return;
+  for (const btn of els.orientationToggle.querySelectorAll('button')) {
+    btn.classList.toggle('active', btn.dataset.orientation === state.orientation);
+  }
+}
+
+function wireOrientationToggle() {
+  if (!els.orientationToggle) return;
+  els.orientationToggle.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-orientation]');
+    if (!btn) return;
+    const o = btn.dataset.orientation;
+    if (o !== 'portrait' && o !== 'landscape') return;
+    if (state.orientation === o) return;
+    state.orientation = o;
+    syncOrientationToggle();
+    markDirty();
+    renderAll();
+  });
+}
+
+// Custom-font chips list (below the drop-zone)
+function renderCustomFontChips() {
+  const box = els.customFontChips;
+  if (!box) return;
+  box.innerHTML = '';
+  const fams = Object.keys(state.customFonts || {});
+  for (const fam of fams) {
+    const chip = document.createElement('span');
+    chip.className = 'custom-font-chip';
+    chip.textContent = fam;
+    chip.style.fontFamily = `"${fam}", sans-serif`;
+    box.appendChild(chip);
+  }
+}
+
+// Drag-and-drop on the font upload zone, delegating to the same handler
+// that the file input uses. Keeps click-to-browse working via the <label>.
+function wireFontDropZone() {
+  const dz = els.fontDropZone;
+  const input = els.textFontUpload;
+  if (!dz || !input) return;
+
+  const ingestFile = async (file) => {
+    try {
+      const family = await registerCustomFont(file);
+      const rec = listCustomFonts().find(r => r.family === family);
+      if (rec) state.customFonts[family] = rec.dataUrl;
+      if (fontPicker) { fontPicker.setFamily(family); fontPicker.refresh(); }
+      renderCustomFontChips();
+      const l = getSelected();
+      if (l) {
+        l.font = { family, source: 'uploaded' };
+        markDirty();
+        renderAll();
+      }
+    } catch (err) {
+      alert(`Could not load font: ${err && err.message ? err.message : err}`);
+    }
+  };
+
+  dz.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dz.classList.add('is-drag');
+  });
+  dz.addEventListener('dragleave', () => dz.classList.remove('is-drag'));
+  dz.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dz.classList.remove('is-drag');
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (!/\.(ttf|otf|woff2?)$/i.test(file.name)) {
+      alert('Font file must be .ttf, .otf, .woff or .woff2');
+      return;
+    }
+    await ingestFile(file);
+  });
+}
+
 function wireLayersPanel() {
   els.btnAddText.addEventListener('click', addTextLayer);
 }
@@ -1825,9 +1983,29 @@ function wireExportPanel() {
 
 // ========== SECTION 11: INIT ==========
 
+function initFontPicker() {
+  fontPicker = createFontPicker({
+    rootId: 'font-picker',
+    getSampleText: () => {
+      const l = getSelected();
+      return (l && l.content) ? l.content : 'Brooklyn';
+    },
+    onSelect: async (fam) => {
+      await whenFontReady(fam);
+      const l = getSelected();
+      if (!l) return;
+      l.font = { ...(l.font || {}), family: fam };
+      markDirty();
+      renderAll();
+    },
+  });
+  fontPicker.setFamily(state.layers[0]?.font?.family || DEFAULT_FONT);
+}
+
 async function init() {
   loadGoogleFonts();
-  populateFontPicker(els.textFont, state.layers[0]?.font?.family || DEFAULT_FONT);
+  loadLocalFonts();
+  initFontPicker();
   populateMockupDropdowns();
   els.mockupGarment.value = state.mockup.garment;
   els.mockupTint.value = state.mockup.tint;
@@ -1839,9 +2017,11 @@ async function init() {
   wireViewToggle();
   wireDesignName();
   wireTextPanel();
+  wireFontDropZone();
   wireColorPanel();
   wireEffectsPanel();
   wirePaperAndZoom();
+  wireOrientationToggle();
   wireLayersPanel();
   wireLibraryButtons();
   wireExportPanel();
@@ -1849,6 +2029,8 @@ async function init() {
   initCanvasDrag();
   initKeyboardShortcuts();
 
+  syncOrientationToggle();
+  renderCustomFontChips();
   renderLayersPanel();
   syncPanelToLayer();
   renderAll();

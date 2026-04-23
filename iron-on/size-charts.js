@@ -85,32 +85,36 @@ export const BRAND_CHARTS = {
 };
 
 // Seeded garments that match Whitney's actual order. One-click presets in the Mockup panel.
-// Tank size 2 was confirmed as a gift for her cousin (not her 5-year-old daughter).
+// `image` is a path relative to the iron-on/ directory; when loaded, the garment
+// photo replaces the generic silhouette and calibration is cached per preset id
+// in localStorage (so you only click shoulders once per garment).
 export const SEEDED_PRESETS = [
   {
-    id: 'primary-tank-poppy-2',
-    label: 'Primary slub pocket tank — Poppy (size 2, cousin)',
+    id: 'primary-tank-strawberry-2',
+    label: 'Slub Pocket Tank — Strawberry (size 2)',
     brand: 'primary',
     size: '2',
     garment: 'tank',
-    // Sampled from the primary.com product photo for Poppy.
-    tint: '#ee3f2d',
+    tint: '#e8406b',
+    image: 'IMG_9519.PNG',
   },
   {
     id: 'primary-dress-fuchsia-5',
-    label: 'Primary recess dress — Fuchsia (size 5)',
+    label: 'Recess Dress — Fuchsia (size 5)',
     brand: 'primary',
     size: '5',
     garment: 'dress',
     tint: '#d8177e',
+    image: 'IMG_9522.jpg',
   },
   {
     id: 'primary-dress-banana-5',
-    label: 'Primary recess dress — Banana (size 5)',
+    label: 'Recess Dress — Banana (size 5)',
     brand: 'primary',
     size: '5',
     garment: 'dress',
     tint: '#f5e047',
+    image: 'IMG_9521.jpg',
   },
 ];
 
